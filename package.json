@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "author": "Grayfox",
   "bin": {
     "autolink": "bin/autolink"
   },
   "dependencies": {
     "ora": "^0.3.0",
     "rimraf": "^2.5.4"
-  }
+  },
+  "devDependencies": {}
 }
