@@ -13,7 +13,7 @@ It's a tool for basically installing subpackage dependencies and creating and co
 # Install
 
 ```
-$ npm install --save-dev yarn-link
+$ npm install --save-dev yarn-autolink
 ```
 
 ## Configuration
@@ -56,11 +56,16 @@ Thats enough to start working by doing `autolink bootstrap`
 ```
 yarn-autolink CLI tool
 
-usage: autolink <command>
+usage: autolink <command> [options]
 
 commands:
-    bootstrap              Install node_modules for each package and run 'link' command too
-    link                   Resolve dependencies between modules and link them using yarn
-    clean                  Remove links and remove node_modules directories
+    bootstrap                   Install node_modules for each package and run 'link' command too
+    link                        Resolve dependencies between modules and link them using yarn
+    clean                       Remove links and remove node_modules directories
+    exec [--scope | --script]   Execute an NPM script in the scope of a package
+                                    example: autolink exec --scope @application/core --script start
 
+options:
+    scope          The name of the package to act in the scope of
+    script         Name of the NPM script to be executed
 ```
