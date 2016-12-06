@@ -1,0 +1,10 @@
+{
+    "name": "usage",
+    "version": "1.0.0",
+    "dependencies": {},
+    "main": "index.js",
+    "linkDependencies": {
+        "@modules/alpha": "1.0.0",
+        "@modules/beta": "1.0.0"
+    }
+}

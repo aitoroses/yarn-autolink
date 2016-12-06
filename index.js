@@ -11,6 +11,7 @@ const concatMap = (mapFn, xs) => xs.reduce((acc, el) => {
 const isBootstrap = process.argv.indexOf('bootstrap') > -1
 const isClean = process.argv.indexOf('clean') > -1
 const isLink = process.argv.indexOf('link') > -1
+const isExec = process.argv.indexOf('exec') > -1
 
 const packagesPath = path.resolve(process.cwd(), 'packages')
 
@@ -146,7 +147,7 @@ const resolutions = packageOrder.map(x => [x, dependencyMap[x]])
 function linkPackages() {
 
     // Store resolutions
-    fs.writeFileSync(path.resolve('.', '.autolink'), JSON.stringify(dependencyMap, null, '  '))
+    fs.writeFileSync(path.resolve('.', 'yarn-autolink.json'), JSON.stringify(dependencyMap, null, '  '))
 
     const execPromise = (packageDir, params) => () => new Promise((resolve) => {
 
@@ -208,24 +209,38 @@ if (isBootstrap) {
 
     function install(callback) {
 
-        // Run yarn in every package to install the dependencies
-        Promise.all(resolutions.map(([packageDir]) => new Promise((resolve, reject) => {
+        let spinner = new Ora({
+            text: 'Yarn is installing global package dependencies'
+        }).start()
 
-            let spinner = new Ora({
-                text: 'Yarn is installing dependencies for ' + packageDir
-            }).start()
+        const child = spawn('yarn', [], {
+            // cwd: path.resolve(packagesPath, packageDir),
+            // stdio: 'inherit'
+        });
 
-            const child = spawn('yarn', [], {
-                cwd: path.resolve(packagesPath, packageDir),
-                // stdio: 'inherit'
-            });
+        child.on('close', () => {
+            spinner.succeed()
 
-            child.on('close', () => {
-                spinner.succeed()
-                resolve()
-            })
+            // Run yarn in every package to install the dependencies
+            Promise.all(resolutions.map(([packageDir]) => new Promise((resolve, reject) => {
 
-        }))).then(callback || function(){})
+                let spinner = new Ora({
+                    text: 'Yarn is installing dependencies for ' + packageDir
+                }).start()
+
+                const child = spawn('yarn', [], {
+                    cwd: path.resolve(packagesPath, packageDir),
+                    // stdio: 'inherit'
+                });
+
+                child.on('close', () => {
+                    spinner.succeed()
+                    resolve()
+                })
+
+            }))).then(callback || function(){})
+        })
+
     }
 
     install(linkPackages)
@@ -256,4 +271,36 @@ if (isBootstrap) {
 
 } else if (isLink) {
     linkPackages()
+
+} else if (isExec) {
+
+    function readFlag(flag) {
+        return process.argv[process.argv.indexOf(flag) + 1]
+    }
+
+    let scope = readFlag('--scope')
+    let script = readFlag('--script')
+
+    if (!scope || !script) {
+        throw Error('You must specify --scope and --script flags')
+    }
+
+    const child = spawn('yarn', [script], {
+        cwd: path.resolve(packagesPath, scope),
+        stdio: 'inherit'
+    })
+
+} else {
+    console.log(
+`
+yarn-autolink CLI tool
+
+usage: autolink <command>
+
+commands:
+    bootstrap              Install node_modules for each package and run 'link' command too
+    link                   Resolve dependencies between modules and link them using yarn
+    clean                  Remove links and remove node_modules directories
+`
+    )
 }

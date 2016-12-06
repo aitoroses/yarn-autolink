@@ -1,0 +1,10 @@
+{
+    "name": "yarn-autolink-starter",
+    "version": "1.0.0",
+    "scripts": {
+        "postinstall": "autolink bootstrap"
+    },
+    "devDependencies": {
+        "yarn-autolink": "1.0.0"
+    },
+}
