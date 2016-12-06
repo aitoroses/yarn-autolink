@@ -1,13 +1,17 @@
 const fs = require('fs')
 const path = require('path')
 const spawn = require('child_process').spawn;
-
+const rimraf = require('rimraf')
+const Ora = require('ora')
 
 const concatMap = (mapFn, xs) => xs.reduce((acc, el) => {
     return [...acc, ...mapFn(el)]
 }, [])
 
-const isBootstrap = process.argv.indexOf('bootstrap')
+const isBootstrap = process.argv.indexOf('bootstrap') > -1
+const isClean = process.argv.indexOf('clean') > -1
+const isLink = process.argv.indexOf('link') > -1
+
 const packagesPath = path.resolve(process.cwd(), 'packages')
 
 const findFolders = (dir) => {
@@ -58,10 +62,11 @@ const getPackageList = (packagesPath) => getPackage(packagesPath)
 // availablePackages contains valid package names
 // Now we are going to build a dependency map
 
+const getPackageGlobal = (p) => readFileContent(path.resolve(packagesPath, p, 'package.json'))
+
 const getDependencyMap = (packages) => packages.reduce((acc, p) => {
     // Read dependencies of this package for other packages
-    let packageJsonDependencies = Object.keys(readFileContent(path.resolve(packagesPath,p, 'package.json'))
-        .dependencies || {})
+    let packageJsonDependencies = Object.keys(getPackageGlobal(p).linkDependencies || {})
 
     let result = packageJsonDependencies.filter(dep => {
         return packages.indexOf(dep) > -1
@@ -126,13 +131,19 @@ const getPackageOrder = dependencyMap => {
  * 4) Check package versions versions
  */
 
-if (isBootstrap > -1) {
-    const availablePackages = getPackageList(packagesPath)
-    const dependencyMap = getDependencyMap(availablePackages)
-    throwOnCircularDependency(dependencyMap)
-    const packageOrder = getPackageOrder(dependencyMap)
 
-    const resolutions = packageOrder.map(x => [x, dependencyMap[x]])
+
+/**
+ * 5) Run side effects
+ */
+
+const availablePackages = getPackageList(packagesPath)
+const dependencyMap = getDependencyMap(availablePackages)
+throwOnCircularDependency(dependencyMap)
+const packageOrder = getPackageOrder(dependencyMap)
+const resolutions = packageOrder.map(x => [x, dependencyMap[x]])
+
+function linkPackages() {
 
     // Store resolutions
     fs.writeFileSync(path.resolve('.', '.autolink'), JSON.stringify(dependencyMap, null, '  '))
@@ -140,20 +151,35 @@ if (isBootstrap > -1) {
     const execPromise = (packageDir, params) => () => new Promise((resolve) => {
 
         // Logging
+        let spinner
         if (params.length === 1) {
-            console.log("Creating a link for " + packageDir)
+
+            spinner = new Ora({
+               text: "Creating a link for " + packageDir,
+            })
+
         } else {
-            console.log("Adding " + params[1] + " to " + packageDir)
+            spinner = new Ora({
+               text: "Adding " + params[1] + " to " + packageDir,
+            })
         }
 
-        // Create
         const child = spawn('yarn', params, {
             cwd: path.resolve(packagesPath, packageDir),
             // stdio: 'inherit'
         });
 
-        child.on('close', () => resolve())
-        child.on('error', () => { throw Error("Yarn seems not to be in yout PATH") })
+        spinner.start()
+
+        child.on('close', () => {
+            spinner.succeed()
+            resolve()
+        })
+
+        child.on('error', () => {
+            throw Error("Yarn seems not to be in yout PATH")
+            spinner.fail()
+        })
 
     })
 
@@ -174,8 +200,60 @@ if (isBootstrap > -1) {
     }, Promise.resolve())
 
     series.then(() => {
-        console.log("End!")
+        console.log("All links have been created!")
+    })
+}
+
+if (isBootstrap) {
+
+    function install(callback) {
+
+        // Run yarn in every package to install the dependencies
+        Promise.all(resolutions.map(([packageDir]) => new Promise((resolve, reject) => {
+
+            let spinner = new Ora({
+                text: 'Yarn is installing dependencies for ' + packageDir
+            }).start()
+
+            const child = spawn('yarn', [], {
+                cwd: path.resolve(packagesPath, packageDir),
+                // stdio: 'inherit'
+            });
+
+            child.on('close', () => {
+                spinner.succeed()
+                resolve()
+            })
+
+        }))).then(callback || function(){})
+    }
+
+    install(linkPackages)
+
+} else if (isClean) {
+
+    // Clean links and node_modules directories
+
+    resolutions.forEach(([packageDir]) => {
+
+        let spinner = new Ora({
+            text: 'Cleaning ' + packageDir
+        }).start()
+
+        const child = spawn('yarn', ['unlink'], {
+            cwd: path.resolve(packagesPath, packageDir),
+            // stdio: 'inherit'
+        });
+
+        child.on('close', () => {
+            const dir = path.resolve('packages', packageDir, 'node_modules')
+            rimraf(dir, function() {
+                spinner.succeed()
+            })
+        })
+
     })
 
-
+} else if (isLink) {
+    linkPackages()
 }

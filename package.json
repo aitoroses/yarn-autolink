@@ -6,5 +6,8 @@
   "bin": {
     "autolink": "bin/autolink"
   },
-  "dependencies": {}
+  "dependencies": {
+    "ora": "^0.3.0",
+    "rimraf": "^2.5.4"
+  }
 }
