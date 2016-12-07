@@ -209,18 +209,7 @@ if (isBootstrap) {
 
     function install(callback) {
 
-        let spinner = new Ora({
-            text: 'Yarn is installing global package dependencies'
-        }).start()
-
-        const child = spawn('yarn', [], {
-            // cwd: path.resolve(packagesPath, packageDir),
-            // stdio: 'inherit'
-        });
-
-        child.on('close', () => {
-            spinner.succeed()
-
+        function installDeps() {
             // Run yarn in every package to install the dependencies
             Promise.all(resolutions.map(([packageDir]) => new Promise((resolve, reject) => {
 
@@ -239,7 +228,23 @@ if (isBootstrap) {
                 })
 
             }))).then(callback || function(){})
-        })
+        }
+
+        // let spinner = new Ora({
+        //     text: 'Yarn is installing global package dependencies'
+        // }).start()
+        //
+        // const child = spawn('yarn', [], {
+        //     // cwd: path.resolve(packagesPath, packageDir),
+        //     // stdio: 'inherit'
+        // });
+        //
+        // child.on('close', () => {
+        //     spinner.succeed()
+        //     installDeps()
+        // })
+        
+        installDeps()
 
     }
 
