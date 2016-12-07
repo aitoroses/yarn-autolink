@@ -69,3 +69,7 @@ options:
     scope          The name of the package to act in the scope of
     script         Name of the NPM script to be executed
 ```
+
+## Examples
+
+There's an example folder in this repo but I encourage you to have a look on how to configure a React application with a storybook using a monorepo in this [link](https://github.com/aitoroses/monorepo-starter).
