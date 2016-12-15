@@ -8,10 +8,36 @@ const concatMap = (mapFn, xs) => xs.reduce((acc, el) => {
     return [...acc, ...mapFn(el)]
 }, [])
 
+
+const fromNullable = (x) => x ? Right(x) : Left()
+
+// Either Type
+const Right = x => ({
+    map: f => Right(f(x)),
+    chain: f => f(x),
+    fold: (_, f) => f(x),
+    inspect: () =>  `Right(${x})`
+})
+
+const Left = x => ({
+    map: _ => Left(x),
+    chain: _ => x,
+    fold: (g, _) => g(x),
+    inspect: () => `Left(${x})`
+})
+
+
 const isBootstrap = process.argv.indexOf('bootstrap') > -1
 const isClean = process.argv.indexOf('clean') > -1
 const isLink = process.argv.indexOf('link') > -1
 const isExec = process.argv.indexOf('exec') > -1
+const isAdd = process.argv.indexOf('add') > -1
+const isRemove = process.argv.indexOf('remove') > -1
+
+function readFlag(flag) {
+    return process.argv[process.argv.indexOf(flag) + 1]
+}
+
 
 const packagesPath = path.resolve(process.cwd(), 'packages')
 
@@ -243,7 +269,7 @@ if (isBootstrap) {
         //     spinner.succeed()
         //     installDeps()
         // })
-        
+
         installDeps()
 
     }
@@ -279,10 +305,6 @@ if (isBootstrap) {
 
 } else if (isExec) {
 
-    function readFlag(flag) {
-        return process.argv[process.argv.indexOf(flag) + 1]
-    }
-
     let scope = readFlag('--scope')
     let script = readFlag('--script')
 
@@ -295,6 +317,51 @@ if (isBootstrap) {
         stdio: 'inherit'
     })
 
+} else if (isAdd || isRemove) {
+
+    const scope = readFlag('--scope')
+    const isDev = process.argv.indexOf('--dev') > -1
+
+    // Find which module to install
+    const packageToAct =
+        fromNullable(process.argv)
+        .map(args => ['add', 'remove']
+            .map(operation =>
+                Right(args.indexOf(operation))
+                    .chain(argIndex => argIndex > -1 ? fromNullable(args[argIndex + 1]) : Left('No index found'))
+            )
+        )
+        .chain(xs => isAdd ? xs[0] : xs[1])
+        .fold(
+            function(e) { throw new Error(e) },
+            x => x
+        )
+
+    if (!scope) {
+        throw Error('You must specify --scope flag')
+    }
+
+    const parameters =  [ isAdd ? 'add' : 'remove'
+                        , packageToAct
+                        , ...(isDev ? ['--dev'] : [])
+                        ]
+
+    // console.log(parameters)
+
+    const child = spawn('yarn', parameters, {
+        cwd: path.resolve(packagesPath, scope),
+        stdio: 'inherit'
+    })
+
+    child.on('error', (err) => console.error(`Check if packages/${scope} exists!`))
+    child.on('close', () => {
+        // Run autolink
+        const autolinkBin = path.resolve('node_modules', 'yarn-autolink', 'bin', 'autolink')
+        const child = spawn(autolinkBin, ['link'], {
+            stdio: 'inherit'
+        })
+    })
+
 } else {
     console.log(
 `
@@ -303,11 +370,14 @@ yarn-autolink CLI tool
 usage: autolink <command> [options]
 
 commands:
-    bootstrap                   Install node_modules for each package and run 'link' command too
-    link                        Resolve dependencies between modules and link them using yarn
-    clean                       Remove links and remove node_modules directories
-    exec [--scope | --script]   Execute an NPM script in the scope of a package
-                                    example: autolink exec --scope @application/core --script start
+    bootstrap                                Install node_modules for each package and run 'link' command too
+    link                                     Resolve dependencies between modules and link them using yarn
+    clean                                    Remove links and remove node_modules directories
+    exec [--scope | --script]                Execute an NPM script in the scope of a package
+                                                 example: autolink exec --scope @application/core --script start
+
+    add|remove <package> [--scope | --dev ]  Install a package for for a specific scoped package and then links packages
+                                                 example: autolink add babel-core --dev --scope @application/core
 
 options:
     scope          The name of the package to act in the scope of
