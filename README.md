@@ -59,11 +59,14 @@ yarn-autolink CLI tool
 usage: autolink <command> [options]
 
 commands:
-    bootstrap                   Install node_modules for each package and run 'link' command too
-    link                        Resolve dependencies between modules and link them using yarn
-    clean                       Remove links and remove node_modules directories
-    exec [--scope | --script]   Execute an NPM script in the scope of a package
-                                    example: autolink exec --scope @application/core --script start
+    bootstrap                                Install node_modules for each package and run 'link' command too
+    link                                     Resolve dependencies between modules and link them using yarn
+    clean                                    Remove links and remove node_modules directories
+    exec [--scope | --script]                Execute an NPM script in the scope of a package
+                                                 example: autolink exec --scope @application/core --script start
+
+    add|remove <package> [--scope | --dev ]  Install a package for for a specific scoped package and then links packages
+                                                 example: autolink add babel-core --dev --scope @application/core
 
 options:
     scope          The name of the package to act in the scope of
